@@ -1,2 +1,2 @@
 export * from "./generated/api";
-export * from "./generated/types";
+// TypeScript types are inferred from Zod schemas via z.infer<>; skip types/ re-export to avoid name collisions

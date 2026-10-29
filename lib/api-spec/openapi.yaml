@@ -3,13 +3,19 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: LocalLoop API - geolocation-based community chat rooms
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: users
+    description: User identity management
+  - name: rooms
+    description: Chat room operations
+  - name: messages
+    description: Message operations
 paths:
   /healthz:
     get:
@@ -24,6 +30,256 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /users:
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create an anonymous user
+      description: Creates a new anonymous user with a generated username and color
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users/{userId}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get user by ID
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          description: Not found
+
+  /rooms:
+    get:
+      operationId: listRooms
+      tags: [rooms]
+      summary: List nearby rooms
+      description: Returns rooms within a specified radius of the given coordinates
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: lng
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: radiusKm
+          in: query
+          required: false
+          schema:
+            type: number
+            default: 5
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Room"
+    post:
+      operationId: createRoom
+      tags: [rooms]
+      summary: Create a new room
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoomInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Room"
+
+  /rooms/trending:
+    get:
+      operationId: getTrendingRooms
+      tags: [rooms]
+      summary: Get trending rooms near a location
+      description: Returns the most active rooms near the given coordinates
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: lng
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: radiusKm
+          in: query
+          required: false
+          schema:
+            type: number
+            default: 20
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Room"
+
+  /rooms/{roomId}:
+    get:
+      operationId: getRoom
+      tags: [rooms]
+      summary: Get room details
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Room"
+        "404":
+          description: Not found
+
+  /rooms/{roomId}/stats:
+    get:
+      operationId: getRoomStats
+      tags: [rooms]
+      summary: Get room statistics
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoomStats"
+        "404":
+          description: Not found
+
+  /rooms/{roomId}/messages:
+    get:
+      operationId: getRoomMessages
+      tags: [messages]
+      summary: List messages in a room
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+        - name: before
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Return messages before this message ID (for pagination)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Message"
+    post:
+      operationId: postMessage
+      tags: [messages]
+      summary: Post a message to a room
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MessageInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+
+  /rooms/{roomId}/activity:
+    get:
+      operationId: getRoomActivity
+      tags: [rooms]
+      summary: Get recent activity summary for a room
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoomActivity"
+        "404":
+          description: Not found
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +290,139 @@ components:
       required:
         - status
 
+    User:
+      type: object
+      required: [id, username, color, createdAt]
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        color:
+          type: string
+          description: Hex color code for the user's avatar
+        createdAt:
+          type: string
+          format: date-time
+
+    UserInput:
+      type: object
+      properties:
+        username:
+          type: string
+          description: Optional custom username, auto-generated if omitted
+
+    Room:
+      type: object
+      required: [id, name, lat, lng, radiusKm, memberCount, messageCount, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        lat:
+          type: number
+        lng:
+          type: number
+        radiusKm:
+          type: number
+        memberCount:
+          type: integer
+        messageCount:
+          type: integer
+        distanceKm:
+          type: ["number", "null"]
+          description: Distance from the queried location (only set when querying by location)
+        lastActivity:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    RoomInput:
+      type: object
+      required: [name, lat, lng]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        description:
+          type: string
+          maxLength: 280
+        lat:
+          type: number
+        lng:
+          type: number
+        radiusKm:
+          type: number
+          default: 5
+
+    RoomStats:
+      type: object
+      required: [roomId, messageCount, memberCount, activeUsersLast24h]
+      properties:
+        roomId:
+          type: integer
+        messageCount:
+          type: integer
+        memberCount:
+          type: integer
+        activeUsersLast24h:
+          type: integer
+        messagesLast24h:
+          type: integer
+        lastActivity:
+          type: ["string", "null"]
+          format: date-time
+
+    RoomActivity:
+      type: object
+      required: [roomId, recentMessages, activeUsers]
+      properties:
+        roomId:
+          type: integer
+        recentMessages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Message"
+        activeUsers:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+        messagesLast1h:
+          type: integer
+
+    Message:
+      type: object
+      required: [id, roomId, userId, username, userColor, content, createdAt]
+      properties:
+        id:
+          type: integer
+        roomId:
+          type: integer
+        userId:
+          type: integer
+        username:
+          type: string
+        userColor:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    MessageInput:
+      type: object
+      required: [content, userId]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        userId:
+          type: integer
